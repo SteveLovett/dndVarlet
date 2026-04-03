@@ -1,15 +1,3 @@
-If `git status` listed your whole home directory (Desktop, .zshrc, etc.)
-========================================================================
-That meant Git was using a repository rooted at your home folder (e.g. ~/.git), not this
-project. A dedicated repo was initialized here so `git status` only sees dndVarlet files.
-
-If ~/.git was created by mistake and you do not need a "repo" for your entire home directory,
-you can remove it after backing up anything important (this deletes that repo's history only):
-  rm -rf ~/.git
-Only do that if you understand the risk; many people use a separate repo per project instead.
-
----
-
 Flattening the repo on GitHub (move app from development/dndVarlet/ to repo root)
 ==================================================================================
 
