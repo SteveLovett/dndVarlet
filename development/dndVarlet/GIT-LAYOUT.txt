@@ -1,0 +1,43 @@
+Flattening the repo on GitHub (move app from development/dndVarlet/ to repo root)
+==================================================================================
+
+Your remote layout: https://github.com/SteveLovett/dndVarlet/tree/main/development/dndVarlet
+
+This workspace already has the app at the project root (package.json next to src/). If your
+clone still has the nested path, run the steps below IN A CLONE of SteveLovett/dndVarlet
+(where .git is the repository root), on branch main.
+
+1) Update and create a branch (optional but safer):
+   git checkout main && git pull
+   git checkout -b chore/move-app-to-root
+
+2) Move everything from development/dndVarlet/ to the repo root. From the repo root:
+
+   - Move visible files and folders:
+     git mv development/dndVarlet/* .
+
+   - Move dotfiles that exist (add lines only for files you actually have):
+     git mv development/dndVarlet/.gitignore .
+     git mv development/dndVarlet/.env.example .
+
+   Do NOT commit .env — it should be ignored (see .gitignore). If .env was ever committed:
+
+     git rm --cached development/dndVarlet/.env
+     (after the move, from repo root: git rm --cached .env)
+
+   Then remove empty folders:
+     rmdir development/dndVarlet
+     rmdir development
+
+3) Commit and push:
+   git add -A
+   git status
+   git commit -m "Move Vite app to repository root"
+   git push -u origin chore/move-app-to-root
+
+4) Open a pull request on GitHub, merge to main.
+
+5) If .env was exposed on GitHub, rotate Supabase keys in the Supabase dashboard.
+
+If git mv fails because the destination exists, move in smaller steps or resolve conflicts
+(e.g. merge root README with app README manually).
