@@ -16,7 +16,7 @@ export function AppShellLayout() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <h1 className="app-header-title">dndVarlet</h1>
+        <h1 className="app-header-title">TTRPG Varlet</h1>
         <nav className="app-nav" aria-label="App">
           <NavLink className={({ isActive }) => (isActive ? 'active' : '')} to="/app" end>
             Home

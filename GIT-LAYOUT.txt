@@ -1,32 +1,32 @@
-Flattening the repo on GitHub (move app from development/dndVarlet/ to repo root)
+Flattening the repo on GitHub (move app from development/ttrpgVarlet/ to repo root)
 ==================================================================================
 
-Your remote layout: https://github.com/SteveLovett/dndVarlet/tree/main/development/dndVarlet
+Your remote layout: https://github.com/SteveLovett/ttrpgVarlet/tree/main/development/ttrpgVarlet
 
 This workspace already has the app at the project root (package.json next to src/). If your
-clone still has the nested path, run the steps below IN A CLONE of SteveLovett/dndVarlet
+clone still has the nested path, run the steps below IN A CLONE of SteveLovett/ttrpgVarlet
 (where .git is the repository root), on branch main.
 
 1) Update and create a branch (optional but safer):
    git checkout main && git pull
    git checkout -b chore/move-app-to-root
 
-2) Move everything from development/dndVarlet/ to the repo root. From the repo root:
+2) Move everything from development/ttrpgVarlet/ to the repo root. From the repo root:
 
    - Move visible files and folders:
-     git mv development/dndVarlet/* .
+     git mv development/ttrpgVarlet/* .
 
    - Move dotfiles that exist (add lines only for files you actually have):
-     git mv development/dndVarlet/.gitignore .
-     git mv development/dndVarlet/.env.example .
+     git mv development/ttrpgVarlet/.gitignore .
+     git mv development/ttrpgVarlet/.env.example .
 
    Do NOT commit .env — it should be ignored (see .gitignore). If .env was ever committed:
 
-     git rm --cached development/dndVarlet/.env
+     git rm --cached development/ttrpgVarlet/.env
      (after the move, from repo root: git rm --cached .env)
 
    Then remove empty folders:
-     rmdir development/dndVarlet
+     rmdir development/ttrpgVarlet
      rmdir development
 
 3) Commit and push:
