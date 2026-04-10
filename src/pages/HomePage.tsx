@@ -1,5 +1,47 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import type { ComponentProps } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
+
+type GameSummary = {
+  id: string
+  name: string
+  description: string | null
+  role: 'Game Master' | 'Player'
+}
+
+type GameMembershipRow = {
+  game_role: GameSummary['role'] | null
+  games:
+    | {
+        id: string
+        name: string
+        description: string | null
+      }
+    | Array<{
+        id: string
+        name: string
+        description: string | null
+      }>
+    | null
+}
+
+type FormSubmitEvent = Parameters<NonNullable<ComponentProps<'form'>['onSubmit']>>[0]
+
+function mapMembershipRowsToGames(rows: GameMembershipRow[]): GameSummary[] {
+  return rows
+    .map((row) => {
+      const game = Array.isArray(row.games) ? row.games[0] : row.games
+      if (!game) return null
+      return {
+        id: game.id,
+        name: game.name,
+        description: game.description,
+        role: row.game_role === 'Game Master' ? 'Game Master' : 'Player',
+      } satisfies GameSummary
+    })
+    .filter((game): game is GameSummary => game !== null)
+}
 
 /**
  * /app — main authenticated home (rendered inside AppShellLayout).
@@ -8,69 +50,179 @@ import { supabase } from '../supabaseClient'
 export function HomePage() {
   const [email, setEmail] = useState<string | null>(null)
   const [displayName, setDisplayName] = useState<string | null>(null)
+  const [games, setGames] = useState<GameSummary[]>([])
+  const [loadingGames, setLoadingGames] = useState(true)
+  const [loadingProfile, setLoadingProfile] = useState(true)
+  const [isCreating, setIsCreating] = useState(false)
+  const [gamesError, setGamesError] = useState<string | null>(null)
+  const [createError, setCreateError] = useState<string | null>(null)
+  const [gameName, setGameName] = useState('')
+  const [description, setDescription] = useState('')
+  const [isPublic, setIsPublic] = useState(false)
 
+  /** Loads “my games” from Supabase (memberships + nested game rows). */
+  const loadMyGames = useCallback(async (userId: string): Promise<{ error: string | null }> => {
+    const { data, error } = await supabase
+      .from('game_members')
+      .select('game_role, games ( id, name, description )')
+      .eq('user_id', userId)
+
+    if (error) {
+      return { error: error.message }
+    }
+
+    const rows = (data ?? []) as GameMembershipRow[]
+    setGames(mapMembershipRowsToGames(rows))
+    return { error: null }
+  }, [])
+
+  const handleCreateGame = async (e: FormSubmitEvent) => {
+    e.preventDefault()
+    setCreateError(null)
+
+    const trimmedName = gameName.trim()
+    if (!trimmedName) {
+      setCreateError('Game name is required.')
+      return
+    }
+
+    setIsCreating(true)
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+      if (userError) {
+        setCreateError(userError.message)
+        return
+      }
+      if (!user) {
+        setCreateError('You must be signed in to create a game.')
+        return
+      }
+
+      const desc = description.trim()
+
+      const { data: newGameId, error: gameError } = await supabase.rpc('create_game', {
+        p_name: trimmedName,
+        p_description: desc.length > 0 ? desc : '',
+        p_is_public: isPublic,
+      })
+
+      if (gameError) {
+        setCreateError(gameError.message)
+        return
+      }
+
+      if (!newGameId) {
+        setCreateError('Could not create game (no id returned).')
+        return
+      }
+
+      const refresh = await loadMyGames(user.id)
+      if (refresh.error) {
+        setGamesError(refresh.error)
+      }
+
+      setGameName('')
+      setDescription('')
+      setIsPublic(false)
+    } finally {
+      setIsCreating(false)
+    }
+  }
   useEffect(() => {
+    let cancelled = false
+
     void (async () => {
+      setLoadingGames(true)
+      setLoadingProfile(true)
+      setGamesError(null)
+
       const {
         data: { session },
       } = await supabase.auth.getSession()
-      if (!session?.user) return
+      const user = session?.user
+      if (!user) {
+        setLoadingGames(false)
+        setLoadingProfile(false)
+        return
+      }
 
-      const user = session.user
+      const refresh = await loadMyGames(user.id)
+      if (cancelled) return
+
+      if (refresh.error) {
+        setGamesError(refresh.error)
+        setGames([])
+        setLoadingGames(false)
+        return
+      }
+
+      setLoadingGames(false)
+
+      
       setEmail(user.email ?? null)
-
-      const { data: row, error: selectError } = await supabase
-        .from('profiles')
-        .select('display_name')
-        .eq('id', user.id)
-        .maybeSingle()
-
-      if (selectError) {
-        console.warn('profiles select:', selectError.message)
-        return
-      }
-
-      const fallback = user.email?.split('@')[0]?.trim() || 'Player'
-
-      if (row?.display_name) {
-        setDisplayName(row.display_name)
-        return
-      }
-
-      if (row && row.display_name == null) {
-        const { data: updated, error: updateError } = await supabase
+      try {
+        const { data: row, error: selectError } = await supabase
           .from('profiles')
-          .update({ display_name: fallback })
+          .select('display_name')
           .eq('id', user.id)
+          .maybeSingle()
+
+        if (selectError) {
+          console.warn('profiles select:', selectError.message)
+          return
+        }
+
+        const fallback = user.email?.split('@')[0]?.trim() || 'Player'
+
+        if (row?.display_name) {
+          setDisplayName(row.display_name)
+          return
+        }
+
+        if (row && row.display_name == null) {
+          const { data: updated, error: updateError } = await supabase
+            .from('profiles')
+            .update({ display_name: fallback })
+            .eq('id', user.id)
+            .select('display_name')
+            .maybeSingle()
+
+          if (updateError) {
+            console.warn('profiles update:', updateError.message)
+            return
+          }
+          if (updated?.display_name) setDisplayName(updated.display_name)
+          return
+        }
+
+        const { data: inserted, error: insertError } = await supabase
+          .from('profiles')
+          .insert({ id: user.id, display_name: fallback })
           .select('display_name')
           .maybeSingle()
 
-        if (updateError) {
-          console.warn('profiles update:', updateError.message)
+        if (insertError) {
+          console.warn('profiles insert:', insertError.message)
           return
         }
-        if (updated?.display_name) setDisplayName(updated.display_name)
-        return
-      }
 
-      const { data: inserted, error: insertError } = await supabase
-        .from('profiles')
-        .insert({ id: user.id, display_name: fallback })
-        .select('display_name')
-        .maybeSingle()
-
-      if (insertError) {
-        console.warn('profiles insert:', insertError.message)
-        return
-      }
-
-      if (inserted?.display_name) {
-        setDisplayName(inserted.display_name)
+        if (inserted?.display_name) {
+          setDisplayName(inserted.display_name)
+        }
+      } finally {
+        setLoadingProfile(false)
       }
     })()
-  }, [])
 
-  const label = displayName ?? email
+    return () => {
+      cancelled = true
+    }
+  }, [loadMyGames])
+
+  const label = loadingProfile ? null : (displayName ?? email)
 
   return (
     <div className="app-panel">
@@ -86,8 +238,75 @@ export function HomePage() {
             ) : null}
           </>
         ) : null}
-        . Your games and tools will show here in Phase 1.
+        .
       </p>
+      <section>
+        <h3>Create a new game</h3>
+        <form onSubmit={handleCreateGame} className="create-game-form">
+          <div className="form-row">
+            <label htmlFor="game-name">Game name </label>
+            <input
+              id="game-name"
+              name="game-name"
+              type="text"
+              autoComplete="off"
+              value={gameName}
+              onChange={(e) => setGameName(e.target.value)}
+              disabled={isCreating}
+              minLength={3}
+              required
+            />
+          </div>
+
+          <div className="form-row">
+            <label htmlFor="description">Description </label>
+            <textarea
+              id="description"
+              name="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              disabled={isCreating}
+            />
+          </div>
+
+          <div className="form-row form-row-inline">
+            <input
+              id="is-public"
+              name="is-public"
+              type="checkbox"
+              checked={isPublic}
+              onChange={(e) => setIsPublic(e.target.checked)}
+            />
+            <label htmlFor="is-public">Public game </label>
+          </div>
+
+          <button type="submit" disabled={isCreating}>
+            Create game
+          </button>
+          {createError ? <p>{createError}</p> : null}
+        </form>
+      </section>
+      <section>
+        <h3>My games</h3>
+        {loadingGames ? (
+          <p>Loading games...</p>
+        ) : gamesError ? (
+          <p>Could not load games: {gamesError}</p>
+        ) : games.length === 0 ? (
+          <p>You are not in any games yet.</p>
+        ) : (
+          <ul>
+            {games.map((game) => (
+              <li key={game.id}>
+                <h4>{game.name}</h4>
+                <Link to={`/app/games/${game.id}`}>Open game</Link>
+                <p>{game.description ?? 'No description yet.'}</p>
+                <p>Role: {game.role}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   )
 }

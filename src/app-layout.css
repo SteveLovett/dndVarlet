@@ -87,3 +87,34 @@
   margin: 0;
   line-height: 1.45;
 }
+
+.create-game-form {
+  display: grid;
+  gap: 0.75rem;
+  width: min(100%, 32rem);
+  margin: 0.75rem auto 0;
+}
+
+.form-row {
+  display: grid;
+  gap: 0.35rem;
+  text-align: left;
+}
+
+.form-row input[type='text'],
+.form-row textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.form-row textarea {
+  min-height: 5.5rem;
+  resize: vertical;
+}
+
+.form-row-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: flex-start;
+}

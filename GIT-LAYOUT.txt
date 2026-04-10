@@ -1,10 +1,10 @@
 Flattening the repo on GitHub (move app from development/ttrpgVarlet/ to repo root)
 ==================================================================================
 
-Your remote layout: https://github.com/SteveLovett/ttrpgVarlet/tree/main/development/ttrpgVarlet
+Your remote layout: https://github.com/SteveLovett/ttrpg-varlet/tree/main/development/ttrpgVarlet
 
 This workspace already has the app at the project root (package.json next to src/). If your
-clone still has the nested path, run the steps below IN A CLONE of SteveLovett/ttrpgVarlet
+clone still has the nested path, run the steps below IN A CLONE of SteveLovett/ttrpg-varlet
 (where .git is the repository root), on branch main.
 
 1) Update and create a branch (optional but safer):
